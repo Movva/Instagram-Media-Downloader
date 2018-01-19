@@ -82,12 +82,12 @@ def download_file(file_url,filename,path,file_type):
 	if file_type == "video" :
 		print("Downloading "+filename+".mp4")
 		with open(path+filename+".mp4","wb") as f:
-			for chunk in r.iter_content(chunk_size=1024):
+			for chunk in r.iter_content(chunk_size=2048):
 				f.write(chunk)
 	elif file_type == "image" :
 		print("Downloading "+filename+".jpg")
 		with open(path+filename+".jpg","wb") as f:
-			for chunk in r.iter_content():
+			for chunk in r.iter_content(chunk_size=2048):
 				f.write(chunk)
 
 def download_array(code,path):
