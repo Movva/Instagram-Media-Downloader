@@ -1,17 +1,23 @@
 import os,json
 try:
+	print('Updating REQUESTS package')
+	print("===============================================")
+	os.system('pip install requests --upgrade')
 	import requests
 except ImportError:
+	print("REQUESTS package is missing")
+	print("===============================================")
+	print("Downloading REQUESTS.....")
 	os.system('pip install requests')
-	# import requests
+	import requests
 try:
-	import tkinter as tk
+	from tkinter import *
 except:
-	import Tkinter as tk
+	from Tkinter import *
 
 
 class Instagram(object):
-	def __init__(self,profile,login_user,login_password):
+	def __init__(self,profile,login_user,login_password,media):
 		self.url = "https://www.instagram.com/"
 		self.profile = profile
 		self.user_id = login_user
@@ -19,26 +25,43 @@ class Instagram(object):
 		self.header = {
 			"User-Agent":"Mozilla/5.0 (Windows NT 6.2; Win64; x64; rv:57.0) Gecko/20100101 Firefox/57.0"
 		}
+		if media == 1 :
+			self.images = '1'
+			self.videos = ''
+		elif media == 2 :
+			self.images = ''
+			self.videos = '1'
+		elif media == 3:
+			self.images = ''
+			self.videos = ''
+
+	def insta(self):
+		path , jsondata, status = self.checkusername()
+		if status == 'public' or status=='private':
+			self.download(path,jsondata, status)
+			print('\n\n************Download Compeleted************')
+		elif status=='':
+			print("Profile doesn't exists")
+
 
 	def checkusername(self):
-		'''Checks requested user exists or not, if yes did he posted anything
-		on their wall, if yes then folder created and catch the created path
-		from creating_folder and calls the download() with path as parameter'''
+		'''Checks profile_id exists or not. If exists create folder
+		and return folder path, jsondata, public/profile status'''
 		re = requests.get(self.url+self.profile)
 		if(re.status_code==200):
 			requestingJSON = requests.get(self.url+self.profile+"/?__a=1",headers=self.header)
-			data = requestingJSON.json()
-			if not data["user"]["is_private"]:
-				if data['user']['media']['count']==0 :
+			publicjson = requestingJSON.json()
+			if not publicjson["user"]["is_private"]:
+				if publicjson['user']['media']['count']==0 :
 					print("No posts")
+					return '','','p'
 				else:
-					path = self.creating_folder(self.profile)
-					self.download(path,data,'public')
-					print('\n\n************Download Compeleted************')
+					return self.creating_folder(self.profile) , publicjson, 'public'
 			else:
 				if self.user_id=='user name' or self.user_id=='' and self.password=='password' or self.password=='':
 					print("Sorry, you are trying to access profile is PRIVATE...")
 					print('Login required')
+					return '','','p'
 				else:
 					global private
 					private = PRIVATE_PROFILE(self.user_id,self.password)
@@ -46,21 +69,23 @@ class Instagram(object):
 					privatelogin = private.login()
 					if privatelogin == False:
 						print("Invalid username or password")
+						return '','','p'
 					else:
 						privatejson = private.return_json(privatelogin,self.profile,'','')
 						if privatejson['user']['followed_by_viewer'] == False:
 							print("You don't have previliges to access "+self.profile+" profile")
 						else:
-							path = self.creating_folder(self.profile)
-							self.download(path,privatejson,'private')
-							print('\n\n************Download Compeleted************')
+							return self.creating_folder(self.profile), privatejson, 'private'
 		else:
-			print("Invalid profile")
+			return '','',''
+
 
 	def creating_folder(self,folder):
+		'''Creates folder with the profile name and return folder path'''
 		if not os.path.exists(folder):
 			print("Creating "+folder+" folder...")
 			os.makedirs(folder)
+			return folder+"/"
 		else:
 			for i in range(1,10):			
 				newfolder = folder+"("+str(i+1)+")"
@@ -68,22 +93,21 @@ class Instagram(object):
 					self.creating_folder(newfolder)
 					break
 			return newfolder+"/"
-		return folder+"/"
 		
 
 
 	def download(self,path,jsondata,status):
-		'''Filters the media type and calls the self.appropriate function'''
+		'''Filters the media type and calls the appropriate function'''
 		collectingNodes = jsondata['user']['media']['nodes']
 		try:
 			for i in range(12):
-				if collectingNodes[i]["__typename"] == "GraphImage" :
+				if collectingNodes[i]["__typename"] == "GraphImage" + self.videos :
 					imageurl = collectingNodes[i]['display_src']
 					filename = collectingNodes[i]['id']
 					self.download_file(imageurl,filename,path,"image")
 				elif collectingNodes[i]["__typename"] == "GraphSidecar" :
 					self.download_array(collectingNodes[i]['code'],path,status)
-				elif collectingNodes[i]['__typename'] == "GraphVideo" :
+				elif collectingNodes[i]['__typename'] == "GraphVideo" + self.images:
 					self.download_video(collectingNodes[i]['code'],path,status)
 		except IndexError:
 			pass
@@ -138,10 +162,15 @@ class Instagram(object):
 
 		fileurl = data1['graphql']['shortcode_media']['edge_sidecar_to_children']['edges']
 		try:
+			k = 1
 			i = 0
-			while not fileurl[i]['node']['display_url'] == "":
-				self.download_file(fileurl[i]['node']['display_url'],fileurl[i]['node']['id'],path,"image")
-				i+=1
+			while k :
+				if fileurl[i]['node']['__typename'] == "GraphVideo" + self.images:
+					self.download_file(fileurl[i]['node']['video_url'],fileurl[i]['node']['id'],path,"video")
+				elif fileurl[i]['node']['__typename'] == "GraphImage" +self.videos:
+					self.download_file(fileurl[i]['node']['display_url'],fileurl[i]['node']['id'],path,"image")
+				i = i+1
+				k = k+1
 		except IndexError:
 			pass
 
@@ -162,6 +191,7 @@ class PRIVATE_PROFILE(object):
 			'Host' : 'www.instagram.com',
 			'origin': 'https://www.instagram.com',
 			'Referer': 'https://www.instagram.com',
+			'Upgrade-Insecure-Requests':'1',
 			'UserAgent':'Mozilla/5.0 (Windows NT 6.2; Win64; x64; rv:57.0) Gecko/20100101 Firefox/57.0',
 			'x-instagram-ajax':'1',
 			'X-Requested-With': 'XMLHttpRequest'
@@ -187,60 +217,57 @@ class PRIVATE_PROFILE(object):
 
 class GUI(object):
 	def __init__(self):
-		self.app = tk.Tk()
+		self.app = Tk()
 		self.labels()
-
 
 	def labels(self):
 		#Defining the UI
 		self.app.configure(background="#E9BC80")
 		self.app.title("Instagram Media Downloader")
-		self.app.geometry("330x170") #widhtxheight
+		self.app.geometry("370x170") #widhtxheight
 		self.app.resizable(False,False) #width, height
 
-		#Creating Widgets
-		label = tk.Label(self.app,text="Instagram Downloader")
-		label.place(x=80,y=15)
+		url = Label(self.app,text="https://www.instagram.com/")
+		url.place(x=30,y=15)
 
-		url = tk.Label(self.app,text="https://www.instagram.com/")
-		url.place(x=10,y=40)
+		profilename = EntryWithPlaceholder(self.app,'profile_id')
+		profilename.place(x=190,y=15)
 
-		profilename = EntryWithPlaceholder(self.app)
-		profilename.insert(0,'profile_id')
-		profilename.place(x=170,y=41)
+		global t
+		t = IntVar()
+		t.set(int(3))
+		Radiobutton(self.app, text='Images Only', variable=t, value = 1,).place(x=10,y=42)
+		Radiobutton(self.app, text='Videos Only', variable=t, value = 2,).place(x=120,y=42)
+		Radiobutton(self.app, text='Images and Videos', variable=t, value = 3).place(x=230,y=42)
 
-		login = tk.Label(self.app,text="Login(optional)")
-		login.place(x=120,y=70)
+		login = Label(self.app,text="Login(optional)")
+		login.place(x=120,y=80)
 
-		login_user = EntryWithPlaceholder(self.app)
-		login_user.insert(0,'user name')
-		login_user.place(x=30,y=100)
+		login_user = EntryWithPlaceholder(self.app, 'user name')
+		login_user.place(x=30,y=110)
 
-		login_password = EntryWithPlaceholder(self.app)
-		login_password.insert(0,'password')
-		login_password.place(x=170,y=100)
+		global login_password
+		login_password = EntryWithPlaceholder(self.app, 'password')
+		login_password.place(x=170,y=110)
 
-		download = tk.Button(self.app,text="Download")
-		download.place(x=120,y=130)
-		download.configure(command=lambda:Instagram(profilename.get(),login_user.get(),login_password.get()).checkusername())
+		download = Button(self.app,text="Download")
+		download.place(x=129,y=140)
+		download.configure(command=lambda:Instagram(profilename.get(),login_user.get(),login_password.get(),t.get()).insta())
 
-
-	def startTktinter(self):
+	def startTkinter(self):
 		self.app.mainloop()
 
 
-class EntryWithPlaceholder(tk.Entry):
+class EntryWithPlaceholder(Entry,object):
     def __init__(self,master=None, placeholder='', color='grey'):
-        super().__init__(master)
-
+        super(EntryWithPlaceholder,self).__init__(master)
         self.placeholder = placeholder
         self.placeholder_color = color
         self.default_fg_color = self['fg']
-
         self.bind("<FocusIn>", self.foc_in)
         self.bind("<FocusOut>", self.foc_out)
-
         self.put_placeholder()
+
 
     def put_placeholder(self):
         self.insert(0, self.placeholder)
@@ -254,6 +281,8 @@ class EntryWithPlaceholder(tk.Entry):
     def foc_out(self, *args):
         if not self.get():
             self.put_placeholder()
+
+
 if __name__ == '__main__':
 	start = GUI()
-	start.startTktinter()
+	start.startTkinter()
