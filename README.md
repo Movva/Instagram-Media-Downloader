@@ -1,2 +1,4 @@
 # Instagram-Media-Downloader
-Can download images and videos
+Download Instagram public/private profiles images and videos
+
+![Screenshot](https://github.com/Movva/Instagram-Media-Downloader/blob/master/Screenshots/v2.png)
