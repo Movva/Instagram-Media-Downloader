@@ -1,3 +1,6 @@
+# This project is no longer maintained.
+Reason: Changes in API.
+
 # Instagram-Media-Downloader
 Download Instagram public/private profiles images and videos
 
